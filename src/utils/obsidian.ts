@@ -1,5 +1,5 @@
 import path from "node:path"
-import { type App, type CachedMetadata, type View } from "obsidian"
+import { getFrontMatterInfo, type App, type CachedMetadata, type View, type Vault, type TFile } from "obsidian"
 import type { LlmPluginSettings } from "src/config/settings"
 import LlmPlugin from "src/main"
 import { writable } from "svelte/store"
@@ -33,6 +33,15 @@ export function readWorkspaceContext(metadata: CachedMetadata | null): string | 
 		return metadata.frontmatter[frontmatterKeyContext]
 	}
 	return null
+}
+
+export async function cachedReadContentWithoutFrontmatter(vault: Vault, file: TFile): Promise<string> {
+	const fileContents = await vault.cachedRead(file)
+
+	let { contentStart } = getFrontMatterInfo(fileContents)
+	let withoutFrontmatter = fileContents.slice(contentStart)
+
+	return withoutFrontmatter
 }
 
 export function isPlaintextFile(file: FilePath): boolean {

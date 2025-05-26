@@ -1,7 +1,11 @@
 <script lang="ts">
 	import type { TFile } from "obsidian"
 	import { Notice } from "obsidian"
-	import { appStore, settingsStore } from "src/utils/obsidian"
+	import {
+		appStore,
+		settingsStore,
+		cachedReadContentWithoutFrontmatter,
+	} from "src/utils/obsidian"
 	import { showSelectVaultFileModal } from "src/view/SelectVaultFileModal"
 	import ObsidianIcon from "../obsidian/ObsidianIcon.svelte"
 
@@ -60,7 +64,7 @@
 			query = query.slice(0, cursorPos - 1) + query.slice(cursorPos)
 		}
 		const onSelect = async (file: TFile) => {
-			const prompt = await $appStore.vault.cachedRead(file)
+			const prompt = await cachedReadContentWithoutFrontmatter($appStore.vault, file)
 			query = query + " " + prompt
 			rowCount = rowCountExpanded
 			textarea.focus()

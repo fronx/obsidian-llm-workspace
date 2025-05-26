@@ -4,7 +4,11 @@
 	import { llmClient } from "src/llm-features/llm-client"
 	import { extractKeyTopics, noteSummary } from "src/llm-features/note-context"
 	import type { LlmDexie } from "src/storage/db"
-	import { appStore, settingsStore } from "src/utils/obsidian"
+	import {
+		appStore,
+		settingsStore,
+		cachedReadContentWithoutFrontmatter,
+	} from "src/utils/obsidian"
 	import TailwindCss from "./TailwindCSS.svelte"
 	import ObsidianIcon from "./obsidian/ObsidianIcon.svelte"
 	import {
@@ -39,7 +43,7 @@
 
 	let noteContextEnabled: Promise<boolean> = $derived.by(async () => {
 		if (!openFile) return false
-		const contents = await $appStore.vault.cachedRead(openFile)
+		const contents = await cachedReadContentWithoutFrontmatter($appStore.vault, openFile)
 		return contents.length >= $settingsStore.noteContextMinChars
 	})
 

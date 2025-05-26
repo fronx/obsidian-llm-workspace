@@ -22,6 +22,7 @@
 		isPlaintextFile,
 		readWorkspaceContext,
 		settingsStore,
+		cachedReadContentWithoutFrontmatter,
 	} from "src/utils/obsidian"
 	import { readable } from "svelte/store"
 	import ErrorComponent from "../ErrorComponent.svelte"
@@ -201,7 +202,7 @@
 				if (!file) {
 					continue
 				}
-				const text = await $appStore.vault.cachedRead(file)
+				const text = await cachedReadContentWithoutFrontmatter($appStore.vault, file)
 				for (const node of nodeParser.parse(text, file.path)) {
 					nodes.push(node)
 				}
@@ -230,7 +231,7 @@
 			if (!file) {
 				return
 			}
-			const text = await $appStore.vault.cachedRead(file)
+			const text = await cachedReadContentWithoutFrontmatter($appStore.vault, file)
 			for (const node of nodeParser.parse(text, file.path)) {
 				const embedding = await $embeddingClient.embedNode(node)
 				await vectorStore.addNode(node, embedding, workspaceFile.path)
@@ -256,7 +257,7 @@
 		for (const file of attachedFiles) {
 			try {
 				nodes.push({
-					content: await $appStore.vault.cachedRead(file),
+					content: await cachedReadContentWithoutFrontmatter($appStore.vault, file),
 					parent: file.path,
 					createdAt: new Date().valueOf(),
 				})

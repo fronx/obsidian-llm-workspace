@@ -6,7 +6,11 @@
 	import { SingleNoteQueryEngine, type QueryEngine } from "src/rag/query-engine"
 	import { DumbResponseSynthesizer, type ResponseSynthesizer } from "src/rag/synthesizer"
 	import { writeDebugInfo } from "src/utils/debug"
-	import { appStore, settingsStore } from "src/utils/obsidian"
+	import {
+		appStore,
+		settingsStore,
+		cachedReadContentWithoutFrontmatter,
+	} from "src/utils/obsidian"
 	import { writable } from "svelte/store"
 	import TailwindCss from "./TailwindCSS.svelte"
 	import ConfigValue from "./chat/ConfigValue.svelte"
@@ -17,12 +21,12 @@
 
 	let pendingNoteContent = $state<string | null>(null)
 	const noteContent = writable("", (set) => {
-		$appStore.vault.cachedRead(file).then((content) => {
+		cachedReadContentWithoutFrontmatter($appStore.vault, file).then((content) => {
 			set(content)
 		})
 		const ref = $appStore.vault.on("modify", (modifiedFile) => {
 			if (modifiedFile.path === file.path) {
-				$appStore.vault.cachedRead(file).then((content) => {
+				cachedReadContentWithoutFrontmatter($appStore.vault, file).then((content) => {
 					pendingNoteContent = content
 				})
 			}
@@ -58,7 +62,7 @@
 		for (const file of attachedFiles) {
 			try {
 				nodes.push({
-					content: await $appStore.vault.cachedRead(file),
+					content: await cachedReadContentWithoutFrontmatter($appStore.vault, file),
 					parent: file.path,
 					createdAt: new Date().valueOf(),
 				})
