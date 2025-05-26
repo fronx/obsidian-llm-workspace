@@ -13,7 +13,8 @@
       "Bash(find:*)",
       "Bash(ls:*)",
       "Bash(grep:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": []
   }

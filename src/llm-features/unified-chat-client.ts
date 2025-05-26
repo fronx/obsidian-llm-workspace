@@ -14,6 +14,14 @@ export class ObsidianSearchPlugin extends Plugin {
     super();
   }
 
+  isEnabled(): boolean {
+    return true;
+  }
+
+  serializeInTools(): boolean {
+    return true;
+  }
+
   getName(): string {
     return 'search_notes';
   }
@@ -33,11 +41,24 @@ export class ObsidianSearchPlugin extends Plugin {
     ];
   }
 
-  async execute(parameters: { query: string }): Promise<string> {
+  getPreparationDescription(tool: string): string {
+    return 'Preparing to search notes...';
+  }
+
+  getRunningDescription(tool: string, args: any): string {
+    return 'Searching through notes...';
+  }
+
+  async execute(parameters: any): Promise<any> {
     try {
       const app = get(appStore);
       if (!app) {
         throw new Error('Obsidian app not available');
+      }
+      
+      const query = parameters.query;
+      if (!query) {
+        throw new Error('Query parameter is required');
       }
 
       const files = app.vault.getMarkdownFiles();
@@ -46,11 +67,11 @@ export class ObsidianSearchPlugin extends Plugin {
       // Simple text search through file names and content
       for (const file of files.slice(0, 10)) { // Limit to 10 files for performance
         try {
-          if (file.basename.toLowerCase().includes(parameters.query.toLowerCase())) {
+          if (file.basename.toLowerCase().includes(query.toLowerCase())) {
             results.push(`📄 ${file.basename} (${file.path})`);
           } else {
             const content = await app.vault.read(file);
-            if (content.toLowerCase().includes(parameters.query.toLowerCase())) {
+            if (content.toLowerCase().includes(query.toLowerCase())) {
               results.push(`📄 ${file.basename} (${file.path})`);
             }
           }
@@ -61,10 +82,10 @@ export class ObsidianSearchPlugin extends Plugin {
       }
 
       if (results.length === 0) {
-        return `No notes found matching "${parameters.query}"`;
+        return `No notes found matching "${query}"`;
       }
 
-      return `Found ${results.length} notes matching "${parameters.query}":\n${results.join('\n')}`;
+      return `Found ${results.length} notes matching "${query}":\n${results.join('\n')}`;
     } catch (error) {
       return `Error searching notes: ${error instanceof Error ? error.message : 'Unknown error'}`;
     }
@@ -77,6 +98,14 @@ export class ObsidianSearchPlugin extends Plugin {
 export class ObsidianGetNotePlugin extends Plugin {
   constructor() {
     super();
+  }
+
+  isEnabled(): boolean {
+    return true;
+  }
+
+  serializeInTools(): boolean {
+    return true;
   }
 
   getName(): string {
@@ -98,28 +127,41 @@ export class ObsidianGetNotePlugin extends Plugin {
     ];
   }
 
-  async execute(parameters: { path: string }): Promise<string> {
+  getPreparationDescription(tool: string): string {
+    return 'Preparing to read note...';
+  }
+
+  getRunningDescription(tool: string, args: any): string {
+    return 'Reading note content...';
+  }
+
+  async execute(parameters: any): Promise<any> {
     try {
       const app = get(appStore);
       if (!app) {
         throw new Error('Obsidian app not available');
       }
 
+      const path = parameters.path;
+      if (!path) {
+        throw new Error('Path parameter is required');
+      }
+
       // Try to find the file by exact path first
-      let file = app.vault.getAbstractFileByPath(parameters.path);
+      let file = app.vault.getAbstractFileByPath(path);
       
       // If not found by path, try to find by name
       if (!file) {
         const files = app.vault.getMarkdownFiles();
         file = files.find((f: TFile) => 
-          f.basename === parameters.path || 
-          f.name === parameters.path ||
-          f.path === parameters.path
+          f.basename === path || 
+          f.name === path ||
+          f.path === path
         ) || null;
       }
 
       if (!file || !(file instanceof TFile)) {
-        return `Note not found: "${parameters.path}"`;
+        return `Note not found: "${path}"`;
       }
 
       const content = await app.vault.read(file);
@@ -136,6 +178,14 @@ export class ObsidianGetNotePlugin extends Plugin {
 export class ObsidianCreateNotePlugin extends Plugin {
   constructor() {
     super();
+  }
+
+  isEnabled(): boolean {
+    return true;
+  }
+
+  serializeInTools(): boolean {
+    return true;
   }
 
   getName(): string {
@@ -169,14 +219,27 @@ export class ObsidianCreateNotePlugin extends Plugin {
     ];
   }
 
-  async execute(parameters: { name: string; content?: string; folder?: string }): Promise<string> {
+  getPreparationDescription(tool: string): string {
+    return 'Preparing to create note...';
+  }
+
+  getRunningDescription(tool: string, args: any): string {
+    return 'Creating new note...';
+  }
+
+  async execute(parameters: any): Promise<any> {
     try {
       const app = get(appStore);
       if (!app) {
         throw new Error('Obsidian app not available');
       }
 
-      let path = parameters.name;
+      const name = parameters.name;
+      if (!name) {
+        throw new Error('Name parameter is required');
+      }
+
+      let path = name;
       if (!path.endsWith('.md')) {
         path += '.md';
       }
@@ -209,6 +272,14 @@ export class ObsidianListFilesPlugin extends Plugin {
     super();
   }
 
+  isEnabled(): boolean {
+    return true;
+  }
+
+  serializeInTools(): boolean {
+    return true;
+  }
+
   getName(): string {
     return 'list_files';
   }
@@ -234,7 +305,15 @@ export class ObsidianListFilesPlugin extends Plugin {
     ];
   }
 
-  async execute(parameters: { folder?: string; limit?: number }): Promise<string> {
+  getPreparationDescription(tool: string): string {
+    return 'Preparing to list files...';
+  }
+
+  getRunningDescription(tool: string, args: any): string {
+    return 'Listing files...';
+  }
+
+  async execute(parameters: any): Promise<any> {
     try {
       const app = get(appStore);
       if (!app) {
@@ -320,12 +399,13 @@ export class UnifiedChatClient {
   /**
    * Generate chat completion with streaming
    */
-  async *generate(model: Model, messages: Message[]) {
+  async *generate(model: Model, messages: Message[], enableTools: boolean = false) {
     if (!this.llm) {
       throw new Error('Chat client not initialized');
     }
 
-    const stream = this.llm.generate(model.id, messages);
+    const opts = enableTools ? { tools: true } : undefined;
+    const stream = this.llm.generate(model.id, messages, opts);
     for await (const chunk of stream) {
       yield chunk; // Return the raw chunk, let the adapter handle the types
     }
@@ -416,7 +496,8 @@ export class UnifiedChatClient {
 export class UnifiedChatClientAdapter implements StreamingChatCompletionClient {
   constructor(
     private unifiedClient: UnifiedChatClient,
-    private modelName: string
+    private modelName: string,
+    private enableFunctionCalling: boolean = false
   ) {}
 
   get displayName(): string {
@@ -506,7 +587,7 @@ export class UnifiedChatClientAdapter implements StreamingChatCompletionClient {
     
     yield { type: 'start' };
     
-    for await (const chunk of this.unifiedClient.generate(model, mlMessages)) {
+    for await (const chunk of this.unifiedClient.generate(model, mlMessages, this.enableFunctionCalling)) {
       const llmChunk = chunk as LlmChunk;
       
       if (llmChunk.type === 'content') {
