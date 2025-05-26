@@ -32,6 +32,7 @@ describe("conversationStore", () => {
 			createStreamingChatCompletion: vi.fn(),
 			createChatCompletion: vi.fn(),
 			createJSONCompletion: vi.fn(),
+			createFunctionCallingCompletion: vi.fn(),
 			displayName: "Mock Client",
 		}
 

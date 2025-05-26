@@ -14,6 +14,7 @@ describe("workspaceQuestions", () => {
 		mockClient = {
 			createJSONCompletion: vi.fn(),
 			createChatCompletion: vi.fn(),
+			createFunctionCallingCompletion: vi.fn(),
 			displayName: "Mock Client",
 		}
 
