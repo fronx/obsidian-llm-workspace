@@ -34,9 +34,9 @@
 	}
 </script>
 
-<div class="conversation-scroller relative grow pb-40">
+<div class="conversation-scroller flex grow flex-col">
 	{#if conversation}
-		<div class="grow">
+		<div class="overflow-y-auto grow p-4">
 			{#if conversation.initialUserQuery}
 				<Message
 					message={{
@@ -140,11 +140,13 @@
 			{#if conversation.error}
 				<ErrorComponent body={conversation.error} />
 			{/if}
+			<div id="scroll-anchor"></div>
 		</div>
 	{:else}
-		<slot name="empty" />
+		<div class="grow p-4">
+			<slot name="empty" />
+		</div>
 	{/if}
-	<div id="scroll-anchor"></div>
 	<UserInput
 		disabled={conversation?.isLoading ?? false}
 		isConversationActive={conversation != null}

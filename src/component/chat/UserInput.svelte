@@ -79,7 +79,7 @@
 	}
 </script>
 
-<form class="fixed bottom-11 left-4 right-4" onsubmit={_onSubmit}>
+<form class=" left-4 right-4" onsubmit={_onSubmit}>
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="relative">
 		<!-- Top toolbar -->
