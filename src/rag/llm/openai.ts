@@ -35,6 +35,13 @@ export class OpenAIChatCompletionClient implements StreamingChatCompletionClient
 		return `OpenAI ${this.model}`
 	}
 
+	private formatMessage(message: ChatMessage): OpenAI.Chat.ChatCompletionMessageParam {
+		return {
+			role: message.role as "system" | "user" | "assistant",
+			content: messageWithAttachmens(message.content, message.attachedContent),
+		}
+	}
+
 	async *createStreamingChatCompletion(
 		messages: ChatMessage[],
 		options: CompletionOptions,
@@ -44,12 +51,7 @@ export class OpenAIChatCompletionClient implements StreamingChatCompletionClient
 		const stream = await this.client.chat.completions.create({
 			model: this.model,
 			stream: true,
-			messages: messages.map((message) => {
-				return {
-					role: message.role,
-					content: messageWithAttachmens(message.content, message.attachedContent),
-				}
-			}),
+			messages: messages.map(this.formatMessage),
 			stream_options: { include_usage: true },
 			max_completion_tokens: options.maxTokens,
 			temperature: temperature(options.temperature),
@@ -84,12 +86,7 @@ export class OpenAIChatCompletionClient implements StreamingChatCompletionClient
 
 		const response = await this.client.chat.completions.create({
 			model: this.model,
-			messages: messages.map((message) => {
-				return {
-					role: message.role,
-					content: messageWithAttachmens(message.content, message.attachedContent),
-				}
-			}),
+			messages: messages.map(this.formatMessage),
 			max_completion_tokens: options.maxTokens,
 			temperature: temperature(options.temperature),
 		})
@@ -143,12 +140,7 @@ export class OpenAIChatCompletionClient implements StreamingChatCompletionClient
 
 		const response = await this.client.chat.completions.create({
 			model: this.model,
-			messages: messages.map((message) => {
-				return {
-					role: message.role,
-					content: messageWithAttachmens(message.content, message.attachedContent),
-				}
-			}),
+			messages: messages.map(this.formatMessage),
 			tools: functions.map(f => ({
 				type: 'function',
 				function: f
