@@ -20,6 +20,7 @@
 	"packageManager": "pnpm@9.6.0",
 	"dependencies": {
 		"dexie": "4.0.8",
+		"multi-llm-ts": "^3.6.0",
 		"openai": "^4.67.0"
 	},
 	"devDependencies": {

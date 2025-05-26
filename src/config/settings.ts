@@ -12,6 +12,7 @@ export interface LlmPluginSettings {
 	embeddingModel: ModelConfiguration
 
 	promptFolder: string
+	useUnifiedClient: boolean
 
 	providerSettings: ProviderSettings
 }
@@ -43,6 +44,7 @@ export const DEFAULT_SETTINGS: LlmPluginSettings = {
 	},
 
 	promptFolder: "Resources/LLM/Prompts",
+	useUnifiedClient: true,
 
 	providerSettings: {
 		openai: {

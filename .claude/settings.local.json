@@ -4,7 +4,13 @@
       "Bash(pnpm test:*)",
       "WebFetch(domain:vite.dev)",
       "Bash(pnpm run lint:*)",
-      "Bash(pnpm exec tsc:*)"
+      "Bash(pnpm exec tsc:*)",
+      "Bash(npm show:*)",
+      "WebFetchTool(domain:github.com)",
+      "Bash(npm run lint)",
+      "Bash(pnpm run:*)",
+      "Bash(pnpm info:*)",
+      "Bash(find:*)"
     ],
     "deny": []
   }

@@ -60,6 +60,16 @@ export class LlmSettingTab extends PluginSettingTab {
 				})
 			})
 
+		new Setting(containerEl)
+			.setName("Use unified client")
+			.setDesc("Use the new unified multi-llm-ts client for chat completions (experimental)")
+			.addToggle((toggle) => {
+				toggle.setValue(this.plugin.settings.useUnifiedClient).onChange(async (value) => {
+					this.plugin.settings.useUnifiedClient = value
+					await this.plugin.saveSettings()
+				})
+			})
+
 		const chatModelSetting = new Setting(containerEl)
 			.setName("Model for conversations")
 			.setDesc("The model used to answer questions in the LLM workspace view")
