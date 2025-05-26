@@ -5,6 +5,8 @@ import {
 	type CompletionOptions,
 	type StreamingChatCompletionClient,
 	type Temperature,
+	type FunctionDefinition,
+	type FunctionCall,
 } from "./common"
 import { iterSSEMessages } from "../../utils/sse"
 import { nodeStreamingFetch } from "src/utils/node"
@@ -231,6 +233,45 @@ export class AnthropicChatCompletionClient implements StreamingChatCompletionCli
 				`LLM response could not be parsed to JSON schema: ${e}\nResponse: {${newMessage.content[0].text}`,
 			)
 		}
+	}
+
+	async createFunctionCallingCompletion(
+		messages: ChatMessage[],
+		functions: FunctionDefinition[],
+		options: CompletionOptions
+	): Promise<FunctionCall | null> {
+		if (this.apiKey === "") throw new Error("Anthropic API key is not set")
+
+		// Convert functions to Claude's format
+		const toolsDescription = functions.map(f => {
+			const params = Object.entries(f.parameters.properties).map(([name, prop]) => {
+				return `- ${name}: ${prop.type} - ${prop.description}`
+			}).join('\n')
+
+			return `${f.name}: ${f.description}\nParameters:\n${params}`
+		}).join('\n\n')
+
+		const systemMessage = messages[0].content + "\n\nAvailable tools:\n" + toolsDescription +
+			"\n\nTo use a tool, respond in JSON format with 'name' and 'arguments'. Example: {\"name\": \"tool_name\", \"arguments\": \"{\\\"param\\\": \\\"value\\\"}\"}"
+
+		const response = await this.makeRequest(
+			[
+				{ role: "system", content: systemMessage, attachedContent: [] },
+				...messages.slice(1)
+			],
+			options
+		)
+
+		const newMessage = (await response.json) as Message
+		try {
+			const functionCall = JSON.parse(newMessage.content[0].text) as FunctionCall
+			if (typeof functionCall.name === 'string' && typeof functionCall.arguments === 'string') {
+				return functionCall
+			}
+		} catch (e) {
+			// Not a function call
+		}
+		return null
 	}
 
 	async makeRequest(

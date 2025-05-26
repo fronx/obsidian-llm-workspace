@@ -82,6 +82,7 @@
 			completionOptions,
 			$settingsStore.systemPrompt,
 			workspaceContext,
+			retriever,
 		),
 	)
 	let queryEngine: QueryEngine = $derived(

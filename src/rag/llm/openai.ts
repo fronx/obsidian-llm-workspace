@@ -10,6 +10,8 @@ import {
 	type QueryEmbedding,
 	type StreamingChatCompletionClient,
 	type Temperature,
+	type FunctionDefinition,
+	type FunctionCall,
 } from "./common"
 
 export const testConnection = async (apiKey: string): Promise<boolean> => {
@@ -129,6 +131,41 @@ export class OpenAIChatCompletionClient implements StreamingChatCompletionClient
 			throw new Error(
 				`LLM response could not be parsed to JSON schema: ${error}\nResponse: ${response.choices[0].message.content}`,
 			)
+		}
+	}
+
+	async createFunctionCallingCompletion(
+		messages: ChatMessage[],
+		functions: FunctionDefinition[],
+		options: CompletionOptions
+	): Promise<FunctionCall | null> {
+		if (this.apiKey === "") throw new Error("OpenAI API key is not set")
+
+		const response = await this.client.chat.completions.create({
+			model: this.model,
+			messages: messages.map((message) => {
+				return {
+					role: message.role,
+					content: messageWithAttachmens(message.content, message.attachedContent),
+				}
+			}),
+			tools: functions.map(f => ({
+				type: 'function',
+				function: f
+			})),
+			tool_choice: 'auto',
+			max_completion_tokens: options.maxTokens,
+			temperature: temperature(options.temperature),
+		})
+
+		const toolCall = response.choices[0].message.tool_calls?.[0]
+		if (!toolCall) {
+			return null
+		}
+
+		return {
+			name: toolCall.function.name,
+			arguments: toolCall.function.arguments
 		}
 	}
 }

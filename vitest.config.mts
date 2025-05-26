@@ -21,12 +21,16 @@ export default defineConfig({
 				"*.config.*",
 			],
 		},
+
+
 	},
 
 	resolve: {
 		alias: {
 			// Match the baseUrl from tsconfig.json
 			src: new URL("./src", import.meta.url).pathname,
+			// Mock obsidian for tests
+			obsidian: new URL("./src/__mocks__/obsidian.ts", import.meta.url).pathname,
 		},
 	},
 })

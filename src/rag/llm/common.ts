@@ -5,7 +5,7 @@ export interface EmbeddingClient {
 	embedQuery(query: string): Promise<QueryEmbedding>
 }
 
-export type Role = "system" | "user" | "assistant"
+export type Role = "system" | "user" | "assistant" | "function"
 
 export interface ChatMessage {
 	content: string
@@ -50,6 +50,24 @@ export interface CompletionOptions {
 	maxTokens: number
 }
 
+export interface FunctionDefinition {
+	name: string;
+	description: string;
+	parameters: {
+		type: "object";
+		properties: Record<string, {
+			type: string;
+			description: string;
+		}>;
+		required?: string[];
+	};
+}
+
+export interface FunctionCall {
+	name: string;
+	arguments: string; // JSON string
+}
+
 export interface ChatCompletionClient {
 	get displayName(): string
 	createChatCompletion(messages: ChatMessage[], options: CompletionOptions): Promise<ChatMessage>
@@ -58,6 +76,11 @@ export interface ChatCompletionClient {
 		userPrompt: string,
 		options: CompletionOptions,
 	): Promise<T>
+	createFunctionCallingCompletion(
+		messages: ChatMessage[],
+		functions: FunctionDefinition[],
+		options: CompletionOptions
+	): Promise<FunctionCall | null>
 }
 
 export type StreamingChatCompletionClient = ChatCompletionClient & {

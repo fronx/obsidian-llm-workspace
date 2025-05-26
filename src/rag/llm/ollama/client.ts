@@ -5,6 +5,8 @@ import type {
 	CompletionOptions,
 	StreamingChatCompletionClient,
 	Temperature,
+	FunctionDefinition,
+	FunctionCall,
 } from "../common"
 import type { ChatResponse, StreamEvent } from "./types"
 
@@ -205,6 +207,64 @@ export class OllamaClient implements StreamingChatCompletionClient {
 			return Promise.reject(resp.text())
 		}
 		return resp
+	}
+
+	async createFunctionCallingCompletion(
+		messages: ChatMessage[],
+		functions: FunctionDefinition[],
+		options: CompletionOptions
+	): Promise<FunctionCall | null> {
+		if (this.url === "") throw new Error("Ollama URL is not set")
+
+		// Convert functions to a format Ollama can understand in the system prompt
+		const toolsDescription = functions.map(f => {
+			const params = Object.entries(f.parameters.properties).map(([name, prop]) => {
+				return `- ${name}: ${prop.type} - ${prop.description}`
+			}).join('\n')
+
+			return `${f.name}: ${f.description}\nParameters:\n${params}`
+		}).join('\n\n')
+
+		const systemMessage = messages[0].content + "\n\nAvailable tools:\n" + toolsDescription +
+			"\n\nTo use a tool, respond in JSON format with 'name' and 'arguments'. Example: {\"name\": \"tool_name\", \"arguments\": \"{\\\"param\\\": \\\"value\\\"}\"}"
+
+		const resp = await fetch(`${this.url}/api/chat`, {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+			},
+			body: JSON.stringify({
+				model: this.model,
+				messages: [
+					{ role: "system", content: systemMessage },
+					...messages.slice(1).map((message) => {
+						return {
+							role: message.role,
+							content: message.content,
+						}
+					})
+				],
+				options: {
+					temperature: temperature(options.temperature),
+					num_predict: options.maxTokens,
+				},
+			}),
+		})
+
+		if (resp.status < 200 || resp.status >= 400) {
+			return Promise.reject(resp.text())
+		}
+
+		const response = await resp.json()
+		try {
+			const functionCall = JSON.parse(response.message.content) as FunctionCall
+			if (typeof functionCall.name === 'string' && typeof functionCall.arguments === 'string') {
+				return functionCall
+			}
+		} catch (e) {
+			// Not a function call
+		}
+		return null
 	}
 }
 
