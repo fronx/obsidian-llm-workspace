@@ -21,8 +21,8 @@
 		onNewConversation: () => void
 	} = $props()
 
-	const rowCountDefault = 1
-	const rowCountExpanded = 5
+	const rowCountDefault = 4
+	const rowCountExpanded = 10
 
 	let textarea: HTMLTextAreaElement
 	let query = $state("")
@@ -79,7 +79,7 @@
 	}
 </script>
 
-<form class=" left-4 right-4" onsubmit={_onSubmit}>
+<form class="left-4 right-4 mb-10" onsubmit={_onSubmit}>
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="relative">
 		<!-- Top toolbar -->
