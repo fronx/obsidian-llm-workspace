@@ -84,10 +84,7 @@
 	<div class="relative">
 		<!-- Top toolbar -->
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<div
-			class="absolute start-0 top-0 flex w-full flex-row flex-wrap gap-1 pl-2 pr-2 pt-2"
-			onclick={() => textarea.focus()}
-		>
+		<div class="flex w-full flex-row flex-wrap gap-1 p-2" onclick={() => textarea.focus()}>
 			<button
 				class="flex h-fit rounded border border-solid border-border bg-primary p-0 px-1 py-0.5 text-xs !shadow-none hover:shadow-none"
 				aria-label="Insert prompt"
@@ -125,7 +122,7 @@
 		</div>
 		<!-- svelte-ignore a11y_autofocus -->
 		<textarea
-			class="text-normal w-full resize-y bg-secondary pb-8 pt-9"
+			class="text-normal w-full resize-y bg-secondary pb-8"
 			autofocus
 			bind:this={textarea}
 			bind:value={query}
