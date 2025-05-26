@@ -13,6 +13,7 @@ export interface LlmPluginSettings {
 
 	promptFolder: string
 	useUnifiedClient: boolean
+	enableFunctionCalling: boolean
 
 	providerSettings: ProviderSettings
 }
@@ -45,6 +46,7 @@ export const DEFAULT_SETTINGS: LlmPluginSettings = {
 
 	promptFolder: "Resources/LLM/Prompts",
 	useUnifiedClient: true,
+	enableFunctionCalling: true,
 
 	providerSettings: {
 		openai: {

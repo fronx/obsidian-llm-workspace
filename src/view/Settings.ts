@@ -70,6 +70,16 @@ export class LlmSettingTab extends PluginSettingTab {
 				})
 			})
 
+		new Setting(containerEl)
+			.setName("Enable function calling")
+			.setDesc("Allow the AI to use functions like searching notes, creating notes, and listing files (requires unified client)")
+			.addToggle((toggle) => {
+				toggle.setValue(this.plugin.settings.enableFunctionCalling).onChange(async (value) => {
+					this.plugin.settings.enableFunctionCalling = value
+					await this.plugin.saveSettings()
+				})
+			})
+
 		const chatModelSetting = new Setting(containerEl)
 			.setName("Model for conversations")
 			.setDesc("The model used to answer questions in the LLM workspace view")

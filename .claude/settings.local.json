@@ -10,7 +10,10 @@
       "Bash(npm run lint)",
       "Bash(pnpm run:*)",
       "Bash(pnpm info:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)"
     ],
     "deny": []
   }
