@@ -4,11 +4,11 @@ import type { Provider } from 'src/config/providers';
 import type { ChatMessage, ChatStreamEvent, CompletionOptions, StreamingChatCompletionClient, Temperature, FunctionDefinition, FunctionCall } from 'src/rag/llm/common';
 import { ObsidianListFilesPlugin } from './plugins/obsidian-list-files-plugin';
 import { ObsidianSearchPlugin } from './plugins/obsidian-search-plugin';
-import { ObsidianGetNotePlugin } from './plugins/obsidian-get-note-plugin';
 import { ObsidianCreateNotePlugin } from './plugins/obsidian-create-note-plugin';
 import { ObsidianUpdateNotePlugin } from './plugins/obsidian-update-note-plugin';
 import { ObsidianListDailyNotesPlugin } from './plugins/obsidian-list-daily-notes-plugin';
-import { ObsidianFindDailyNotePlugin } from './plugins/obsidian-find-daily-note-plugin';
+import { messageWithAttachmens } from 'src/config/prompts';
+import type { Node } from 'src/rag/node';
 
 /**
  * Unified chat client using multi-llm-ts to support multiple LLM providers
@@ -43,12 +43,10 @@ export class UnifiedChatClient {
    */
   addObsidianPlugins(): void {
     this.addPlugin(new ObsidianSearchPlugin());
-    this.addPlugin(new ObsidianGetNotePlugin());
     this.addPlugin(new ObsidianCreateNotePlugin());
     this.addPlugin(new ObsidianUpdateNotePlugin());
     this.addPlugin(new ObsidianListFilesPlugin());
     this.addPlugin(new ObsidianListDailyNotesPlugin());
-    this.addPlugin(new ObsidianFindDailyNotePlugin());
   }
 
   /**
@@ -192,7 +190,9 @@ export class UnifiedChatClientAdapter implements StreamingChatCompletionClient {
         // Skip function role messages for now as multi-llm-ts doesn't support them
         return new Message('user', msg.content);
       }
-      return new Message(msg.role as any, msg.content);
+      // Include attached content with the message
+      const content = messageWithAttachmens(msg.content, msg.attachedContent || []);
+      return new Message(msg.role as any, content);
     });
   }
 

@@ -30,7 +30,7 @@ export class ObsidianSearchPlugin extends Plugin {
   }
 
   getDescription(): string {
-    return 'Search through notes using semantic search (finds conceptually similar content)';
+    return 'Search through notes using semantic search. Returns ONLY short previews (150 chars) of matching content, NOT full note content. Users must manually attach notes to share full content.';
   }
 
   getParameters(): PluginParameter[] {
@@ -38,7 +38,7 @@ export class ObsidianSearchPlugin extends Plugin {
       {
         name: 'query',
         type: 'string',
-        description: 'The search query to find relevant notes',
+        description: 'The search query to find relevant notes. Note: This will only return short previews (150 chars), not full note content.',
         required: true
       }
     ];

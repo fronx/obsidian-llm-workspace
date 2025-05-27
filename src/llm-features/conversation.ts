@@ -57,7 +57,12 @@ export const conversationStore = (
 		})
 
 		const systemPrompt = (completionOptions as any).systemPrompt || ""
-		const systemPromptWithInstructions = systemPrompt + `\n\nCurrent date and time: ${dateTime}\n\nNote: When referencing Obsidian notes, always use Obsidian-style links [[note name]] instead of just mentioning the note title. This makes the references clickable for the user.`
+		const systemPromptWithInstructions = systemPrompt + `\n\nCurrent date and time: ${dateTime}\n\nImportant capabilities and limitations:
+- You can SEARCH notes using semantic search, but this only returns short previews (150 chars) of matching content
+- You CANNOT read the full content of arbitrary notes (except daily notes for editing purposes)
+- Users must manually attach notes using the "Add context" button to share full note content with you
+- You can read and edit daily notes when asked to add entries or modify them
+- When referencing Obsidian notes, always use Obsidian-style links [[note name]] instead of just mentioning the note title. This makes the references clickable for the user.`
 
 		const messagesSoFar: ChatMessage[] = [
 			{

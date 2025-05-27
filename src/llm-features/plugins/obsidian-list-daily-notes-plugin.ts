@@ -93,8 +93,8 @@ export class ObsidianListDailyNotesPlugin extends Plugin {
 
       const noteList = limitedNotes.map((file: TFile) => {
         const modTime = new Date(file.stat.mtime).toLocaleDateString();
-        // Use markdown links instead of wiki-style links for better compatibility
-        return `[${file.basename}](obsidian://open?path=${encodeURIComponent(file.path)}) - modified ${modTime}`;
+        // Use Obsidian wikilink format for clickable links
+        return `[[${file.path}|${file.basename}]] - modified ${modTime}`;
       }).join('\n');
 
       const total = dailyNotes.length;
