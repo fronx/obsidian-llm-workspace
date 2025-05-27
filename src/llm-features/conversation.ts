@@ -44,11 +44,25 @@ export const conversationStore = (
 		conversation.isLoading = true
 		store.set(conversation)
 
-		// Build message history
+		// Build message history with current date/time
+		const now = new Date()
+		const dateTime = now.toLocaleString('en-US', {
+			weekday: 'long',
+			year: 'numeric',
+			month: 'long',
+			day: 'numeric',
+			hour: 'numeric',
+			minute: '2-digit',
+			timeZoneName: 'short'
+		})
+		
+		const systemPrompt = (completionOptions as any).systemPrompt || ""
+		const systemPromptWithDateTime = systemPrompt + `\n\nCurrent date and time: ${dateTime}`
+		
 		const messagesSoFar: ChatMessage[] = [
 			{
 				role: "system",
-				content: (completionOptions as any).systemPrompt || "",
+				content: systemPromptWithDateTime,
 				attachedContent: []
 			},
 			...conversation.additionalMessages,
