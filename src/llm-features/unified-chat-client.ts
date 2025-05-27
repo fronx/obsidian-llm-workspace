@@ -3,8 +3,79 @@ import type { LlmPluginSettings, ModelConfiguration } from '../config/settings';
 import type { Provider } from '../config/providers';
 import type { ChatMessage, ChatStreamEvent, CompletionOptions, StreamingChatCompletionClient, Temperature, FunctionDefinition, FunctionCall } from '../rag/llm/common';
 import { TFile } from 'obsidian';
-import { appStore } from '../utils/obsidian';
+import { appStore, pluginStore } from '../utils/obsidian';
 import { get } from 'svelte/store';
+import { performSemanticSearch, formatSearchResults } from '../rag/semantic-search';
+import { isLlmWorkspace } from '../utils/obsidian';
+import OpenAI from 'openai';
+import type { EmbeddingClient, QueryEmbedding } from '../rag/llm/common';
+import type { Node } from '../rag/node';
+import { nodeRepresentation } from '../rag/node';
+import type { NodeSimilarity } from '../rag/vectorstore';
+
+/**
+ * Apply smart cutoff to search results based on similarity score distribution
+ * Returns results that are within the 80th percentile of the best match
+ * and have at least 30% similarity
+ */
+function applySmartCutoff(nodes: NodeSimilarity[], maxNodes: number): NodeSimilarity[] {
+  if (nodes.length === 0) return [];
+  
+  // Sort by similarity (highest first)
+  const sorted = [...nodes].sort((a, b) => b.similarity - a.similarity);
+  
+  // Apply minimum relevance threshold of 30%
+  const minRelevance = 0.3;
+  let filtered = sorted.filter(node => node.similarity >= minRelevance);
+  
+  // If we have fewer nodes than the max after minimum filtering, return all
+  if (filtered.length <= maxNodes) return filtered;
+  
+  // Calculate the 80th percentile threshold
+  // The best match has the highest similarity
+  const bestSimilarity = filtered[0].similarity;
+  const percentileThreshold = bestSimilarity * 0.8; // 80% of the best match
+  
+  // Apply the more restrictive threshold
+  const threshold = Math.max(percentileThreshold, minRelevance);
+  filtered = filtered.filter(node => node.similarity >= threshold);
+  
+  // Return up to maxNodes results
+  return filtered.slice(0, maxNodes);
+}
+
+/**
+ * Minimal embedding client that skips query improvement for tool-based search
+ */
+class SimpleEmbeddingClient implements EmbeddingClient {
+  private openaiClient: OpenAI;
+  private embeddingModel: string;
+
+  constructor(apiKey: string, embeddingModel: string) {
+    this.openaiClient = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
+    this.embeddingModel = embeddingModel;
+  }
+
+  async embedNode(node: Node): Promise<number[]> {
+    const response = await this.openaiClient.embeddings.create({
+      input: nodeRepresentation(node),
+      model: this.embeddingModel,
+    });
+    return response.data[0].embedding;
+  }
+
+  async embedQuery(query: string): Promise<QueryEmbedding> {
+    const response = await this.openaiClient.embeddings.create({
+      input: query,
+      model: this.embeddingModel,
+    });
+    return {
+      originalQuery: query,
+      improvedQuery: query, // No improvement, just use original
+      embedding: response.data[0].embedding,
+    };
+  }
+}
 
 /**
  * Obsidian search functionality plugin
@@ -27,7 +98,7 @@ export class ObsidianSearchPlugin extends Plugin {
   }
 
   getDescription(): string {
-    return 'Search through notes in the vault using a query string';
+    return 'Search through notes using semantic search (finds conceptually similar content)';
   }
 
   getParameters(): PluginParameter[] {
@@ -52,40 +123,59 @@ export class ObsidianSearchPlugin extends Plugin {
   async execute(parameters: any): Promise<any> {
     try {
       const app = get(appStore);
+      const plugin = get(pluginStore);
+      
       if (!app) {
         throw new Error('Obsidian app not available');
       }
+      if (!plugin || !plugin.db) {
+        throw new Error('Plugin database not available');
+      }
+      
+      // Create simple embedding client (only OpenAI supported for now)
+      const settings = plugin.settings;
+      const modelConfig = settings.embeddingModel;
+      
+      if (modelConfig.provider !== "OpenAI") {
+        return `Semantic search currently only supports OpenAI embeddings. Please configure OpenAI in settings.`;
+      }
+      
+      const embedding = new SimpleEmbeddingClient(
+        settings.providerSettings.openai.apiKey,
+        modelConfig.model
+      );
       
       const query = parameters.query;
       if (!query) {
         throw new Error('Query parameter is required');
       }
 
+      // Find all workspace files
       const files = app.vault.getMarkdownFiles();
-      const results: string[] = [];
+      const workspaceFiles = files.filter(file => {
+        const metadata = app.metadataCache.getFileCache(file);
+        return isLlmWorkspace(metadata);
+      });
+
+      if (workspaceFiles.length === 0) {
+        return `No LLM workspaces found. Please create a workspace note first.`;
+      }
+
+      // Use the first workspace for semantic search
+      const workspaceFile = workspaceFiles[0];
       
-      // Simple text search through file names and content
-      for (const file of files.slice(0, 10)) { // Limit to 10 files for performance
-        try {
-          if (file.basename.toLowerCase().includes(query.toLowerCase())) {
-            results.push(`📄 ${file.basename} (${file.path})`);
-          } else {
-            const content = await app.vault.read(file);
-            if (content.toLowerCase().includes(query.toLowerCase())) {
-              results.push(`📄 ${file.basename} (${file.path})`);
-            }
-          }
-        } catch (e) {
-          // Skip files that can't be read
-          continue;
-        }
-      }
+      const searchResult = await performSemanticSearch(
+        query,
+        workspaceFile.path,
+        plugin.db,
+        embedding,
+        settings.retrievedNodeCount * 2 // Get more candidates for filtering
+      );
 
-      if (results.length === 0) {
-        return `No notes found matching "${query}"`;
-      }
+      // Apply smart cutoff based on similarity scores
+      const nodes = applySmartCutoff(searchResult.nodes, settings.retrievedNodeCount);
 
-      return `Found ${results.length} notes matching "${query}":\n${results.join('\n')}`;
+      return formatSearchResults(nodes);
     } catch (error) {
       return `Error searching notes: ${error instanceof Error ? error.message : 'Unknown error'}`;
     }

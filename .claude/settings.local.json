@@ -14,7 +14,9 @@
       "Bash(ls:*)",
       "Bash(grep:*)",
       "Bash(rg:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(./deploy.sh)"
     ],
     "deny": []
   }
