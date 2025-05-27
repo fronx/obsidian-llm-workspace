@@ -1,5 +1,5 @@
-npm install
-npm run build
+pnpm install
+pnpm run build
 
 [ $? -eq 0 ] && echo "Build successful, continuing with deployment..." || { echo "Build failed, aborting deployment"; exit 1; }
 
