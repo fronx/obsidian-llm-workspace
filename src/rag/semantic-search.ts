@@ -44,6 +44,16 @@ export function formatSearchResults(nodes: NodeSimilarity[]): string {
         return "No relevant notes found."
     }
     
+    // Group results by file to show chunk information
+    const fileGroups = new Map<string, NodeSimilarity[]>()
+    nodes.forEach(node => {
+        const filePath = node.node.parent
+        if (!fileGroups.has(filePath)) {
+            fileGroups.set(filePath, [])
+        }
+        fileGroups.get(filePath)!.push(node)
+    })
+    
     const results = nodes
         .map((node, index) => {
             const filePath = node.node.parent
@@ -53,16 +63,19 @@ export function formatSearchResults(nodes: NodeSimilarity[]): string {
             // Format as Obsidian link
             const link = `[[${filePath}|${fileName}]]`
             
-            // Include a preview of the content
-            const preview = node.node.content
-                .substring(0, 150)
-                .replace(/\n/g, ' ')
-                .trim()
+            // Include chunk information if multiple chunks from same file
+            const chunks = fileGroups.get(filePath)!
+            const chunkInfo = chunks.length > 1 
+                ? ` (chunk ${chunks.indexOf(node) + 1} of ${chunks.length} from this note)`
+                : ''
             
-            return `${index + 1}. ${link} (${similarity}% match)\n   ${preview}${node.node.content.length > 150 ? '...' : ''}`
+            // Include the full chunk content
+            const content = node.node.content.trim()
+            
+            return `${index + 1}. ${link} (${similarity}% match)${chunkInfo}\n   ${content}`
         })
         .join('\n\n')
     
-    return `Found ${nodes.length} relevant notes:\n\n${results}`
+    return `Found ${nodes.length} relevant chunks across ${fileGroups.size} notes:\n\n${results}`
 }
 

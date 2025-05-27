@@ -58,7 +58,9 @@ export const conversationStore = (
 
 		const systemPrompt = (completionOptions as any).systemPrompt || ""
 		const systemPromptWithInstructions = systemPrompt + `\n\nCurrent date and time: ${dateTime}\n\nImportant capabilities and limitations:
-- You can SEARCH notes using semantic search, but this only returns short previews (150 chars) of matching content
+- You can SEARCH notes using semantic search, which searches through content chunks (portions of notes split by the chunk size setting)
+- Search results may show multiple chunks from the same note if different sections match your query
+- Each search result shows the full matching chunk to provide complete context to you. The user doesn't see those tool outputs unless they click a button to expand the details, so you might want to give them a summary of the results or answer their question based on the results.
 - You CANNOT read the full content of arbitrary notes (except daily notes for editing purposes)
 - Users must manually attach notes using the "Add context" button to share full note content with you
 - You can read and edit daily notes when asked to add entries or modify them
