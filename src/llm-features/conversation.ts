@@ -5,7 +5,6 @@ import type {
 	CompletionOptions,
 	StreamingChatCompletionClient,
 } from "../rag/llm/common"
-import type { QueryEngine } from "../rag/query-engine"
 import type { Node } from "src/rag/node"
 import { logger } from "src/utils/logger"
 
@@ -15,7 +14,6 @@ export type ConversationStore = Readable<Conversation | null> & {
 }
 
 export const conversationStore = (
-	queryEngine: QueryEngine,
 	chatClient: StreamingChatCompletionClient,
 	completionOptions: CompletionOptions,
 ): ConversationStore => {
@@ -26,91 +24,71 @@ export const conversationStore = (
 	const submitMessage = async (newMessage: string, attachedContent: Node[]) => {
 		let conversation = get(store)
 
-		if (!conversation || !conversation.queryResponse) {
+		if (!conversation) {
+			// Initialize conversation
 			conversation = {
-				initialUserQuery: newMessage,
+				initialUserQuery: "",
 				queryResponse: null,
 				additionalMessages: [],
-				isLoading: true,
+				isLoading: false,
 				error: null,
 			}
-			store.set(conversation)
-			try {
-				for await (const update of queryEngine.query(newMessage, attachedContent)) {
-					conversation.queryResponse = update
-					conversation.isLoading = true
-					store.set(conversation)
-				}
-				conversation.isLoading = false
-				store.set(conversation)
-			} catch (e) {
-				logger.error("QueryEngine invoke error", "conversationStore", e)
-				conversation.isLoading = false
-				if (e instanceof Error && e.message === "Unexpected status code: 401") {
-					conversation.error = new Error("Unauthorized. Did you set the right API key?")
-				} else {
-					conversation.error = e
-				}
-				store.set(conversation)
-			}
-		} else {
-			conversation.additionalMessages.push({
-				role: "user",
-				content: newMessage,
-				attachedContent: attachedContent,
-			})
-			conversation.isLoading = true
-			store.set(conversation)
+		}
 
-			const messagesSoFar: ChatMessage[] = [
-				{
-					role: "system",
-					content: conversation.queryResponse.systemPrompt,
-					attachedContent: []
-				},
-				{
-					role: "user",
-					content: conversation.queryResponse.userPrompt,
-					attachedContent: []
-				},
-				{
-					role: "assistant",
-					content: conversation.queryResponse.text,
-					attachedContent: []
-				},
-				...conversation.additionalMessages,
-			]
-			try {
-				const stream = chatClient.createStreamingChatCompletion(messagesSoFar, completionOptions)
-				for await (const event of stream) {
-					switch (event.type) {
-						case "start":
-							conversation.isLoading = true
-							conversation.additionalMessages.push({
-								role: "assistant",
-								content: "",
-								attachedContent: []
-							})
-							break
-						case "delta":
-							conversation.isLoading = true
-							if (
-								conversation.additionalMessages.length > 0 &&
-								conversation.additionalMessages.last()!.role === "assistant"
-							) {
-								conversation.additionalMessages.last()!.content += event.content
-							}
-							break
-						case "stop":
-							conversation.isLoading = false
-					}
-					store.set(conversation)
+		// Add user message
+		conversation.additionalMessages.push({
+			role: "user",
+			content: newMessage,
+			attachedContent: attachedContent,
+		})
+		conversation.isLoading = true
+		store.set(conversation)
+
+		// Build message history
+		const messagesSoFar: ChatMessage[] = [
+			{
+				role: "system",
+				content: (completionOptions as any).systemPrompt || "",
+				attachedContent: []
+			},
+			...conversation.additionalMessages,
+		]
+
+		try {
+			const stream = chatClient.createStreamingChatCompletion(messagesSoFar, completionOptions)
+			for await (const event of stream) {
+				switch (event.type) {
+					case "start":
+						conversation.isLoading = true
+						conversation.additionalMessages.push({
+							role: "assistant",
+							content: "",
+							attachedContent: []
+						})
+						break
+					case "delta":
+						conversation.isLoading = true
+						if (
+							conversation.additionalMessages.length > 0 &&
+							conversation.additionalMessages.last()!.role === "assistant"
+						) {
+							conversation.additionalMessages.last()!.content += event.content
+						}
+						break
+					case "stop":
+						conversation.isLoading = false
 				}
-			} catch (e) {
-				conversation.isLoading = false
-				conversation.error = e
 				store.set(conversation)
 			}
+		} catch (e) {
+			logger.error("ChatClient error", "conversationStore", e)
+			conversation.isLoading = false
+			if (e instanceof Error && e.message === "Unexpected status code: 401") {
+				conversation.error = new Error("Unauthorized. Did you set the right API key?")
+			} else {
+				conversation.error = e
+			}
+			store.set(conversation)
 		}
 	}
 

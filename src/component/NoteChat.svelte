@@ -3,8 +3,6 @@
 	import { llmClient } from "src/llm-features/llm-client"
 	import { conversationStore } from "src/llm-features/conversation"
 	import type { CompletionOptions } from "src/rag/llm/common"
-	import { SingleNoteQueryEngine, type QueryEngine } from "src/rag/query-engine"
-	import { DumbResponseSynthesizer, type ResponseSynthesizer } from "src/rag/synthesizer"
 	import { writeDebugInfo } from "src/utils/debug"
 	import {
 		appStore,
@@ -37,15 +35,7 @@
 		temperature: "balanced",
 		maxTokens: 1024,
 	})
-	let synthesizer: ResponseSynthesizer = $derived(
-		new DumbResponseSynthesizer($llmClient, completionOptions, $settingsStore.systemPrompt),
-	)
-	let queryEngine: QueryEngine = $derived(
-		new SingleNoteQueryEngine(synthesizer, $noteContent, file.path),
-	)
-	let conversation: ReturnType<typeof conversationStore> = $derived(
-		conversationStore(queryEngine, $llmClient, completionOptions),
-	)
+	let conversation = conversationStore($llmClient, completionOptions)
 	const onNewConversation = () => {
 		onReload()
 		conversation.resetConversation()

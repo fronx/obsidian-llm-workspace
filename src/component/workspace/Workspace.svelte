@@ -10,9 +10,6 @@
 	} from "src/llm-features/workspace-questions"
 	import type { CompletionOptions } from "src/rag/llm/common"
 	import { NodeParser } from "src/rag/node"
-	import { RetrieverQueryEngine, type QueryEngine } from "src/rag/query-engine"
-	import { EmbeddingVectorRetriever } from "src/rag/retriever"
-	import { DumbResponseSynthesizer, type ResponseSynthesizer } from "src/rag/synthesizer"
 	import { VectorStoreIndex } from "src/rag/vectorstore"
 	import type { LlmDexie, VectorStoreEntry } from "src/storage/db"
 	import { writeDebugInfo } from "src/utils/debug"
@@ -71,24 +68,7 @@
 			paragraphSeparator: "\n\n",
 		}),
 	)
-	let retriever = $derived(
-		new EmbeddingVectorRetriever(vectorStore, $embeddingClient, {
-			limit: $settingsStore.retrievedNodeCount,
-		}),
-	)
-	let synthesizer: ResponseSynthesizer = $derived(
-		new DumbResponseSynthesizer(
-			$llmClient,
-			completionOptions,
-			$settingsStore.systemPrompt,
-			workspaceContext,
-			retriever,
-		),
-	)
-	let queryEngine: QueryEngine = $derived(
-		new RetrieverQueryEngine(retriever, synthesizer, workspaceFile.path),
-	)
-	let conversation = $derived(conversationStore(queryEngine, $llmClient, completionOptions))
+	let conversation = conversationStore($llmClient, completionOptions)
 
 	let links = liveQuery(async () => {
 		const workspace = await db.workspace
