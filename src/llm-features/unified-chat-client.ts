@@ -628,7 +628,7 @@ export class ObsidianFindDailyNotePlugin extends Plugin {
       const file = files.find(f => f.basename === dateStr);
 
       if (file) {
-        const content = await app.vault.read(file);
+        const content = await cachedReadContentWithoutFrontmatter(app.vault, file);
         return `Found daily note "${file.basename}":\n\n${content}`;
       }
 
@@ -789,6 +789,9 @@ export class UnifiedChatClient {
  * Adapter that bridges UnifiedChatClient to the existing StreamingChatCompletionClient interface
  */
 export class UnifiedChatClientAdapter implements StreamingChatCompletionClient {
+  private toolCallCount: number = 0;
+  private awaitingPermission: boolean = false;
+
   constructor(
     private unifiedClient: UnifiedChatClient,
     private modelName: string,
@@ -797,6 +800,18 @@ export class UnifiedChatClientAdapter implements StreamingChatCompletionClient {
 
   get displayName(): string {
     return `${this.unifiedClient.getProvider()} (${this.modelName})`;
+  }
+
+  resetToolCallCounter(): void {
+    this.toolCallCount = 0;
+    this.awaitingPermission = false;
+  }
+
+  private async *handleStopToolUsage(options: CompletionOptions): AsyncGenerator<ChatStreamEvent> {
+    this.awaitingPermission = false;
+    yield { type: 'start' };
+    yield { type: 'delta', content: 'Understood. I\'ll stop using tools and provide a summary of what I\'ve found so far.' };
+    yield { type: 'stop', temperature: this.mapTemperature(options.temperature) };
   }
 
   private convertChatMessages(messages: ChatMessage[]): Message[] {
@@ -878,6 +893,28 @@ export class UnifiedChatClientAdapter implements StreamingChatCompletionClient {
       throw new Error(`Model ${this.modelName} not found`);
     }
 
+    // Check if user is responding to permission request
+    const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+    if (this.awaitingPermission && lastUserMessage) {
+      // Use the model to understand the user's intent
+      const interpretationMessages = [
+        new Message('system', 'You are analyzing a user response to determine if they want to continue or stop tool usage. Respond with exactly "CONTINUE" if they want to proceed with tool calls, or "STOP" if they want to stop tool usage. Consider any variation of yes/no, continue/stop, proceed/halt, etc.'),
+        new Message('user', `User response: "${lastUserMessage.content}"`)
+      ];
+
+      const interpretation = await this.unifiedClient.complete(model, interpretationMessages);
+      const decision = interpretation.trim().toUpperCase();
+
+      if (decision === 'CONTINUE') {
+        // Reset counter and continue with tool calls
+        this.toolCallCount = 0;
+        this.awaitingPermission = false;
+      } else if (decision === 'STOP') {
+        yield* this.handleStopToolUsage(options);
+        return;
+      }
+    }
+
     const mlMessages = this.convertChatMessages(messages);
 
     yield { type: 'start' };
@@ -888,9 +925,18 @@ export class UnifiedChatClientAdapter implements StreamingChatCompletionClient {
       if (llmChunk.type === 'content') {
         yield { type: 'delta', content: llmChunk.text };
       } else if (llmChunk.type === 'tool') {
-        // Handle tool calls by yielding them as content for now
-        // This allows users to see what functions are being called
+        // Track tool calls
         if (llmChunk.call) {
+          this.toolCallCount++;
+
+          // Check if we've hit the limit
+          if (this.toolCallCount > 2) {
+            this.awaitingPermission = true;
+            yield { type: 'delta', content: '\n\nI\'ve made 2 tool calls so far. Continue with more tool calls?\n\n' };
+            yield { type: 'stop', temperature: this.mapTemperature(options.temperature) };
+            return;
+          }
+
           const toolInfo = `🔧 Using ${llmChunk.name}(${JSON.stringify(llmChunk.call.params)})\n${llmChunk.call.result}\n\n`;
           yield { type: 'delta', content: toolInfo };
         } else if (llmChunk.status) {
