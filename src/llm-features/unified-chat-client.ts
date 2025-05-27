@@ -20,26 +20,26 @@ import type { NodeSimilarity } from '../rag/vectorstore';
  */
 function applySmartCutoff(nodes: NodeSimilarity[], maxNodes: number): NodeSimilarity[] {
   if (nodes.length === 0) return [];
-  
+
   // Sort by similarity (highest first)
   const sorted = [...nodes].sort((a, b) => b.similarity - a.similarity);
-  
+
   // Apply minimum relevance threshold of 30%
   const minRelevance = 0.3;
   let filtered = sorted.filter(node => node.similarity >= minRelevance);
-  
+
   // If we have fewer nodes than the max after minimum filtering, return all
   if (filtered.length <= maxNodes) return filtered;
-  
+
   // Calculate the 80th percentile threshold
   // The best match has the highest similarity
   const bestSimilarity = filtered[0].similarity;
   const percentileThreshold = bestSimilarity * 0.8; // 80% of the best match
-  
+
   // Apply the more restrictive threshold
   const threshold = Math.max(percentileThreshold, minRelevance);
   filtered = filtered.filter(node => node.similarity >= threshold);
-  
+
   // Return up to maxNodes results
   return filtered.slice(0, maxNodes);
 }
@@ -124,27 +124,27 @@ export class ObsidianSearchPlugin extends Plugin {
     try {
       const app = get(appStore);
       const plugin = get(pluginStore);
-      
+
       if (!app) {
         throw new Error('Obsidian app not available');
       }
       if (!plugin || !plugin.db) {
         throw new Error('Plugin database not available');
       }
-      
+
       // Create simple embedding client (only OpenAI supported for now)
       const settings = plugin.settings;
       const modelConfig = settings.embeddingModel;
-      
+
       if (modelConfig.provider !== "OpenAI") {
         return `Semantic search currently only supports OpenAI embeddings. Please configure OpenAI in settings.`;
       }
-      
+
       const embedding = new SimpleEmbeddingClient(
         settings.providerSettings.openai.apiKey,
         modelConfig.model
       );
-      
+
       const query = parameters.query;
       if (!query) {
         throw new Error('Query parameter is required');
@@ -163,7 +163,7 @@ export class ObsidianSearchPlugin extends Plugin {
 
       // Use the first workspace for semantic search
       const workspaceFile = workspaceFiles[0];
-      
+
       const searchResult = await performSemanticSearch(
         query,
         workspaceFile.path,
@@ -239,12 +239,12 @@ export class ObsidianGetNotePlugin extends Plugin {
 
       // Try to find the file by exact path first
       let file = app.vault.getAbstractFileByPath(path);
-      
+
       // If not found by path, try to find by name
       if (!file) {
         const files = app.vault.getMarkdownFiles();
-        file = files.find((f: TFile) => 
-          f.basename === path || 
+        file = files.find((f: TFile) =>
+          f.basename === path ||
           f.name === path ||
           f.path === path
         ) || null;
@@ -346,7 +346,7 @@ export class ObsidianCreateNotePlugin extends Plugin {
 
       const content = parameters.content || '';
       const file = await app.vault.create(path, content);
-      
+
       return `Created note "${file.basename}" at ${file.path}`;
     } catch (error) {
       return `Error creating note: ${error instanceof Error ? error.message : 'Unknown error'}`;
@@ -433,12 +433,12 @@ export class ObsidianUpdateNotePlugin extends Plugin {
 
       // Try to find the file by exact path first
       let file = app.vault.getAbstractFileByPath(path);
-      
+
       // If not found by path, try to find by name
       if (!file) {
         const files = app.vault.getMarkdownFiles();
-        file = files.find((f: TFile) => 
-          f.basename === path || 
+        file = files.find((f: TFile) =>
+          f.basename === path ||
           f.name === path ||
           f.path === path
         ) || null;
@@ -450,14 +450,14 @@ export class ObsidianUpdateNotePlugin extends Plugin {
 
       // Read current content
       const currentContent = await app.vault.read(file);
-      
+
       // Parse frontmatter info
       const { contentStart, exists: hasFrontmatter } = getFrontMatterInfo(currentContent);
-      
+
       // Separate frontmatter and content
       const frontmatter = hasFrontmatter ? currentContent.slice(0, contentStart) : '';
       const mainContent = currentContent.slice(contentStart);
-      
+
       // Update content based on mode (only modify the main content, not frontmatter)
       let newMainContent: string;
       switch (mode) {
@@ -473,13 +473,13 @@ export class ObsidianUpdateNotePlugin extends Plugin {
         default:
           throw new Error(`Invalid mode: ${mode}`);
       }
-      
+
       // Combine frontmatter with updated content
       const newContent = frontmatter + newMainContent;
 
       // Write updated content
       await app.vault.modify(file, newContent);
-      
+
       return `Updated note "${file.basename}" (${mode} mode)`;
     } catch (error) {
       return `Error updating note: ${error instanceof Error ? error.message : 'Unknown error'}`;
@@ -553,7 +553,7 @@ export class ObsidianListFilesPlugin extends Plugin {
       files = files.slice(0, limit);
 
       if (files.length === 0) {
-        return parameters.folder 
+        return parameters.folder
           ? `No files found in folder "${parameters.folder}"`
           : 'No markdown files found in vault';
       }
@@ -561,10 +561,80 @@ export class ObsidianListFilesPlugin extends Plugin {
       const fileList = files.map((file: TFile) => `📄 ${file.basename} (${file.path})`).join('\n');
       const total = app.vault.getMarkdownFiles().length;
       const showing = files.length;
-      
+
       return `Showing ${showing} of ${total} files:\n${fileList}`;
     } catch (error) {
       return `Error listing files: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    }
+  }
+}
+
+/**
+ * Obsidian find daily note plugin
+ */
+export class ObsidianFindDailyNotePlugin extends Plugin {
+  constructor() {
+    super();
+  }
+
+  isEnabled(): boolean {
+    return true;
+  }
+
+  serializeInTools(): boolean {
+    return true;
+  }
+
+  getName(): string {
+    return 'find_daily_note';
+  }
+
+  getDescription(): string {
+    return 'Find a daily note for a specific date. Automatically detects common daily note naming patterns.';
+  }
+
+  getParameters(): PluginParameter[] {
+    return [
+      {
+        name: 'date',
+        type: 'string',
+        description: 'Date in YYYY-MM-DD format (e.g., "2025-05-27"). Use "today" for current date.',
+        required: true
+      }
+    ];
+  }
+
+  getPreparationDescription(tool: string): string {
+    return 'Looking for daily note...';
+  }
+
+  getRunningDescription(tool: string, args: any): string {
+    return 'Finding daily note...';
+  }
+
+  async execute(parameters: any): Promise<any> {
+    try {
+      const app = get(appStore);
+      if (!app) {
+        throw new Error('Obsidian app not available');
+      }
+
+      let dateStr = parameters.date;
+      if (dateStr === 'today') {
+        dateStr = new Date().toISOString().split('T')[0];
+      }
+
+      const files = app.vault.getMarkdownFiles();
+      const file = files.find(f => f.basename === dateStr);
+
+      if (file) {
+        const content = await app.vault.read(file);
+        return `Found daily note "${file.basename}":\n\n${content}`;
+      }
+
+      return `No daily note found for ${dateStr}`;
+    } catch (error) {
+      return `Error finding daily note: ${error instanceof Error ? error.message : 'Unknown error'}`;
     }
   }
 }
@@ -606,6 +676,7 @@ export class UnifiedChatClient {
     this.addPlugin(new ObsidianCreateNotePlugin());
     this.addPlugin(new ObsidianUpdateNotePlugin());
     this.addPlugin(new ObsidianListFilesPlugin());
+    this.addPlugin(new ObsidianFindDailyNotePlugin());
   }
 
   /**
@@ -704,12 +775,12 @@ export class UnifiedChatClient {
     }
 
     await client.initialize(providerId, config);
-    
+
     // Add Obsidian plugins for function calling if enabled
     if (settings.enableFunctionCalling) {
       client.addObsidianPlugins();
     }
-    
+
     return client;
   }
 }
@@ -755,7 +826,7 @@ export class UnifiedChatClientAdapter implements StreamingChatCompletionClient {
 
     const mlMessages = this.convertChatMessages(messages);
     const response = await this.unifiedClient.complete(model, mlMessages);
-    
+
     return {
       role: 'assistant',
       content: response,
@@ -792,7 +863,7 @@ export class UnifiedChatClientAdapter implements StreamingChatCompletionClient {
 
     const mlMessages = this.convertChatMessages(messages);
     const response = await this.unifiedClient.complete(model, mlMessages);
-    
+
     // For now, we don't have direct access to function call info from complete()
     // The function calling happens automatically through the plugin system
     return null;
@@ -808,12 +879,12 @@ export class UnifiedChatClientAdapter implements StreamingChatCompletionClient {
     }
 
     const mlMessages = this.convertChatMessages(messages);
-    
+
     yield { type: 'start' };
-    
+
     for await (const chunk of this.unifiedClient.generate(model, mlMessages, this.enableFunctionCalling)) {
       const llmChunk = chunk as LlmChunk;
-      
+
       if (llmChunk.type === 'content') {
         yield { type: 'delta', content: llmChunk.text };
       } else if (llmChunk.type === 'tool') {
@@ -829,8 +900,8 @@ export class UnifiedChatClientAdapter implements StreamingChatCompletionClient {
       }
       // We could also handle 'usage' type chunks if needed
     }
-    
-    yield { 
+
+    yield {
       type: 'stop',
       temperature: this.mapTemperature(options.temperature)
     };
