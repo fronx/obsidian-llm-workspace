@@ -57,12 +57,12 @@ export const conversationStore = (
 		})
 		
 		const systemPrompt = (completionOptions as any).systemPrompt || ""
-		const systemPromptWithDateTime = systemPrompt + `\n\nCurrent date and time: ${dateTime}`
+		const systemPromptWithInstructions = systemPrompt + `\n\nCurrent date and time: ${dateTime}\n\nNote: Tool/function outputs are visible to the user. Do not duplicate tool results in your response.`
 		
 		const messagesSoFar: ChatMessage[] = [
 			{
 				role: "system",
-				content: systemPromptWithDateTime,
+				content: systemPromptWithInstructions,
 				attachedContent: []
 			},
 			...conversation.additionalMessages,
@@ -97,11 +97,27 @@ export const conversationStore = (
 		} catch (e) {
 			logger.error("ChatClient error", "conversationStore", e)
 			conversation.isLoading = false
-			if (e instanceof Error && e.message === "Unexpected status code: 401") {
-				conversation.error = new Error("Unauthorized. Did you set the right API key?")
-			} else {
-				conversation.error = e
+			
+			// Ensure the assistant message contains the error instead of being empty
+			if (conversation.additionalMessages.length > 0 && 
+				conversation.additionalMessages.last()!.role === "assistant" &&
+				conversation.additionalMessages.last()!.content === "") {
+				
+				let errorMessage = "An error occurred while processing your request: ";
+				if (e instanceof Error && e.message === "Unexpected status code: 401") {
+					errorMessage += "Unauthorized. Did you set the right API key?";
+					conversation.error = new Error("Unauthorized. Did you set the right API key?")
+				} else if (e instanceof Error) {
+					errorMessage += e.message;
+					conversation.error = e
+				} else {
+					errorMessage += "Unknown error";
+					conversation.error = e
+				}
+				
+				conversation.additionalMessages.last()!.content = errorMessage;
 			}
+			
 			store.set(conversation)
 		}
 	}
