@@ -11,6 +11,7 @@ export interface ChatMessage {
 	content: string
 	role: Role
 	attachedContent: Node[]
+	toolOutputs?: string[]
 }
 
 export interface ChatStartEvent {
@@ -30,13 +31,18 @@ export interface ChatStopEvent {
 	temperature: number
 }
 
+export interface ChatToolOutputEvent {
+	type: "tool_output"
+	content: string
+}
+
 export interface Usage {
 	inputTokens: number
 	outputTokens: number
 	cachedInputTokens: number
 }
 
-export type ChatStreamEvent = ChatStartEvent | ChatDeltaEvent | ChatStopEvent
+export type ChatStreamEvent = ChatStartEvent | ChatDeltaEvent | ChatStopEvent | ChatToolOutputEvent
 
 // Temperature is defined as an enum and then mapped to provider-specific values
 export type Temperature = "balanced" | "creative" | "precise"

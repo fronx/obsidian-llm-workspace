@@ -13,6 +13,8 @@
 		onCopy: (msg: string) => void
 		onEdit: (msg: string) => void
 	} = $props()
+
+	let toolOutputExpanded = $state(false)
 </script>
 
 <div class="flex flex-row items-baseline">
@@ -48,3 +50,26 @@
 		</button>
 	{:else if message.role === "user"}{/if}
 </div>
+
+{#if message.toolOutputs && message.toolOutputs.length > 0}
+	<div class="ml-5 mt-2">
+		<button
+			class="flex items-center gap-1 text-sm text-muted hover:text-normal"
+			onclick={() => toolOutputExpanded = !toolOutputExpanded}
+		>
+			<ObsidianIcon 
+				iconId={toolOutputExpanded ? "chevron-down" : "chevron-right"} 
+				size="xs" 
+			/>
+			Tool details ({message.toolOutputs.length} {message.toolOutputs.length === 1 ? 'action' : 'actions'})
+		</button>
+		
+		{#if toolOutputExpanded}
+			<div class="mt-2 border-l border-border pl-3 text-sm">
+				{#each message.toolOutputs as output}
+					<pre class="whitespace-pre-wrap font-mono text-xs text-muted mb-2">{output}</pre>
+				{/each}
+			</div>
+		{/if}
+	</div>
+{/if}

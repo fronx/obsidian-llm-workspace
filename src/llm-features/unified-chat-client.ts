@@ -310,10 +310,10 @@ export class UnifiedChatClientAdapter implements StreamingChatCompletionClient {
           }
 
           const toolInfo = `🔧 Using ${llmChunk.name}(${JSON.stringify(llmChunk.call.params)})\n${llmChunk.call.result}\n\n`;
-          yield { type: 'delta', content: toolInfo };
+          yield { type: 'tool_output', content: toolInfo };
         } else if (llmChunk.status) {
           const statusInfo = `🔧 ${llmChunk.name}: ${llmChunk.status}\n`;
-          yield { type: 'delta', content: statusInfo };
+          yield { type: 'tool_output', content: statusInfo };
         }
       }
       // We could also handle 'usage' type chunks if needed

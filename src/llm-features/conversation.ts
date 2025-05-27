@@ -55,10 +55,10 @@ export const conversationStore = (
 			minute: '2-digit',
 			timeZoneName: 'short'
 		})
-		
+
 		const systemPrompt = (completionOptions as any).systemPrompt || ""
-		const systemPromptWithInstructions = systemPrompt + `\n\nCurrent date and time: ${dateTime}\n\nNote: Tool/function outputs are visible to the user. Do not duplicate tool results in your response.\n\nWhen referencing Obsidian notes, always use wiki-style links [[note name]] or [[path/to/note.md|display name]] instead of just mentioning the note title. This makes the references clickable for the user.`
-		
+		const systemPromptWithInstructions = systemPrompt + `\n\nCurrent date and time: ${dateTime}\n\nNote: When referencing Obsidian notes, always use wiki-style links [[note name]] or [[path/to/note.md|display name]] instead of just mentioning the note title. This makes the references clickable for the user.`
+
 		const messagesSoFar: ChatMessage[] = [
 			{
 				role: "system",
@@ -77,7 +77,8 @@ export const conversationStore = (
 						conversation.additionalMessages.push({
 							role: "assistant",
 							content: "",
-							attachedContent: []
+							attachedContent: [],
+							toolOutputs: []
 						})
 						break
 					case "delta":
@@ -89,6 +90,19 @@ export const conversationStore = (
 							conversation.additionalMessages.last()!.content += event.content
 						}
 						break
+					case "tool_output":
+						conversation.isLoading = true
+						if (
+							conversation.additionalMessages.length > 0 &&
+							conversation.additionalMessages.last()!.role === "assistant"
+						) {
+							const lastMsg = conversation.additionalMessages.last()!
+							if (!lastMsg.toolOutputs) {
+								lastMsg.toolOutputs = []
+							}
+							lastMsg.toolOutputs.push(event.content)
+						}
+						break
 					case "stop":
 						conversation.isLoading = false
 				}
@@ -97,12 +111,12 @@ export const conversationStore = (
 		} catch (e) {
 			logger.error("ChatClient error", "conversationStore", e)
 			conversation.isLoading = false
-			
+
 			// Ensure the assistant message contains the error instead of being empty
-			if (conversation.additionalMessages.length > 0 && 
+			if (conversation.additionalMessages.length > 0 &&
 				conversation.additionalMessages.last()!.role === "assistant" &&
 				conversation.additionalMessages.last()!.content === "") {
-				
+
 				let errorMessage = "An error occurred while processing your request: ";
 				if (e instanceof Error && e.message === "Unexpected status code: 401") {
 					errorMessage += "Unauthorized. Did you set the right API key?";
@@ -114,10 +128,10 @@ export const conversationStore = (
 					errorMessage += "Unknown error";
 					conversation.error = e
 				}
-				
+
 				conversation.additionalMessages.last()!.content = errorMessage;
 			}
-			
+
 			store.set(conversation)
 		}
 	}
