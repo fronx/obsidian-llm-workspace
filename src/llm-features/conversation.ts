@@ -57,7 +57,7 @@ export const conversationStore = (
 		})
 
 		const systemPrompt = (completionOptions as any).systemPrompt || ""
-		const systemPromptWithInstructions = systemPrompt + `\n\nCurrent date and time: ${dateTime}\n\nNote: When referencing Obsidian notes, always use wiki-style links [[note name]] or [[path/to/note.md|display name]] instead of just mentioning the note title. This makes the references clickable for the user.`
+		const systemPromptWithInstructions = systemPrompt + `\n\nCurrent date and time: ${dateTime}\n\nNote: When referencing Obsidian notes, always use Obsidian-style links [[note name]] instead of just mentioning the note title. This makes the references clickable for the user.`
 
 		const messagesSoFar: ChatMessage[] = [
 			{
